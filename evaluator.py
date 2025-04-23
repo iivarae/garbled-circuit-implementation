@@ -5,15 +5,20 @@ import otc
 from oblivious.ristretto import point  # Needed to correctly serialize public key
 
 def evaluate():
-    evaluatorInput = input("Enter Input: ")
-    evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
-    inputList = [evaluatorInput[0], evaluatorInput[1]]
-    print("Evaluator Input in Binary: ", evaluatorInput)
+    while True:
+        evaluatorInput = input("Enter a Number from 0-3: ")
+        if evaluatorInput in ("0", "1", "2", "3"):
+            evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
+            inputList = [evaluatorInput[0], evaluatorInput[1]]
+            print("Evaluator Input in Binary: ", evaluatorInput)
+            break
+        else:
+            print("Incorrect input provided")
 
     bob = EvaluatorParty(inputList)
 
     HOST = '127.0.0.1'
-    PORT = 50004
+    PORT = 50005
 
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

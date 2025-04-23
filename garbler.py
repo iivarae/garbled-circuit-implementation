@@ -45,11 +45,16 @@ def garble(alice, circuitData):
     inputList, outputList = circuitData["Inputs"], circuitData["Outputs"]
 
     #Provide a 2 bit input
-    garblerInputs = input("Enter Input: ")
-    garblerInputs = bin(int(garblerInputs))[2:].zfill(2)
-    print("Garbler Input in Binary: ",garblerInputs)
-    input1, input2 = inputList[int(garblerInputs[0])], inputList[int(garblerInputs[1])+2]
-    alice.input = [input1,input2]
+    while True:
+        garblerInputs = input("Enter a Number from 0-3: ")
+        if garblerInputs in ("0", "1", "2", "3"):
+            garblerInputs = bin(int(garblerInputs))[2:].zfill(2)
+            print("Garbler Input in Binary: ",garblerInputs)
+            alice.input = [inputList[int(garblerInputs[0])], inputList[int(garblerInputs[1])+2]]
+            break
+        else:
+            print("Incorrect input provided")
+
 
     # Create the circuit by garbling each gate's truth table
     garbledTables = alice.createGarbledCircuit(circuitData["Wires"], circuitData["Gates"])
