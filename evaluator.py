@@ -13,13 +13,13 @@ def evaluate():
     bob = EvaluatorParty(inputList)
 
     HOST = '127.0.0.1'
-    PORT = 50006
+    PORT = 50004
 
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.bind(('127.0.0.1', PORT))
     client.connect((HOST, 50002))
-    print("Connected to Alice")
+    print("Connected to Garbler")
 
     with client as conn:
         # Receiving the garbled data
@@ -35,7 +35,6 @@ def evaluate():
             received_data += chunk
 
         garbledData = pickle.loads(received_data)
-        print("Received Inputs: ", garbledData["Inputs"])
 
         # Select which input he wants, label for 0 or label for 1
         evaluatorLabels = []
@@ -45,7 +44,6 @@ def evaluate():
             pk = point.from_base64(receivedData["pk"])
 
             r = otc.receive()
-            print("Selecting label at idx: ",int(inputList[i]))
             query = r.query(pk, int(inputList[i]))
             client.sendall(pickle.dumps(query))
 
@@ -60,13 +58,10 @@ def evaluate():
             evaluatorLabels.append(evaluatorLabel)
 
         garblerLabels = garbledData["Inputs"]["Garbler"]
-        print("Evaluator's Label: ", evaluatorLabels)
-        print("Garbler's Label: ", garblerLabels, "\n")
 
         # Evaluator now has to evaluate the circuit
         output = bob.evaluateCircuit(evaluatorLabels, garblerLabels, garbledData)
 
-        print("Discovered output label: ", output)
         if output == -1:
             print("Output not found- closing connection")
             conn.close()
@@ -75,6 +70,10 @@ def evaluate():
         outputval = conn.recv(2048)
         outputval = int.from_bytes(outputval, byteorder='big')
         print("Answer:", outputval)
+        if outputval == 0:
+            print("Bob has a larger input OR inputs are the same")
+        else:
+            print("Alice has a larger input")
 
 def main():
     evaluate()

@@ -134,7 +134,6 @@ class EvaluatorParty:
 
     #Decrypt and return the correct output label given 2 inputs
     def evaluateResult(self, evaluatorLabel, garblerLabel, garbledTable):
-        print("Evaluating: ",evaluatorLabel, garblerLabel)
         for possibility in garbledTable:
             if evaluatorLabel in possibility and garblerLabel in possibility:
                 outputLabel = possibility[2]
@@ -158,7 +157,6 @@ class EvaluatorParty:
 
     # Decrypt and return the correct output label with 2+ circuit inputs
     def evaluateResultTwo(self, evaluatorLabel, garblerLabel, garbledTable):
-            print("Evaluating: ", evaluatorLabel, garblerLabel)
             for possibility in garbledTable:
                 if evaluatorLabel in possibility and garblerLabel in possibility:
                     outputLabel = possibility[2]
@@ -176,39 +174,30 @@ class EvaluatorParty:
         evaluatorWire4 = Wire(evaluatorLabels[1], 4)
 
         for gate in gates:
-            print("\nInput ids: ", gate.inputs)
             for i in range(len(gate.inputs)):
                 if gate.inputs[i] == 1:
-                    print("Using garbler label as input 1", garblerLabels[0].label)
                     gate.inputs[i] = garblerLabels[0]
                 elif gate.inputs[i] == 2:
-                    print("Using garbler label as input 2: ", garblerLabels[1].label)
                     gate.inputs[i] = garblerLabels[1]
                 elif gate.inputs[i] == 3:
-                    print("Using evaluator label as input 3: ", evaluatorWire3.label)
                     gate.inputs[i] = evaluatorWire3
                 elif gate.inputs[i] == 4:
-                    print("Using evaluator label as input 4: ", evaluatorWire4.label)
                     gate.inputs[i] = evaluatorWire4
                 else:
                     for output in outputWires:
                         if gate.inputs[i] == output.id:
-                            print("Using previous output as input: ", output.id, output.label)
                             gate.inputs[i] = output
             # Evaluate on not Gate
             if len(gate.inputs) == 1:
                 outputId = gate.output
                 gate.output = Wire(self.evaluateNot(gate.inputs[0].label, gate.garbledTruthTable), outputId)
                 outputWires.append(gate.output)
-                print("Output: ", gate.output.label)
             # Evaluate on all other gates w 2 inputs
             else:
                 outputId = gate.output
                 gate.output = Wire(
                     self.evaluateResultTwo(gate.inputs[0].label, gate.inputs[1].label, gate.garbledTruthTable), outputId)
                 outputWires.append(gate.output)
-                print("Output: ", gate.output.label)
-        print("Final output: ", outputWires[-1].label)
         return outputWires[-1].label
 
     #Evaluate an Entire circuit. Feed multiple gates into evaluateResult/evaluateNot
@@ -223,32 +212,25 @@ class EvaluatorParty:
             outputWires = []
 
             for gate in gates:
-                print("\nInput ids: ",gate.inputs)
                 for i in range(len(gate.inputs)):
                     if gate.inputs[i] == 2:
-                        print("Using eval label as input, 2", evaluatorWire.label)
                         gate.inputs[i] = evaluatorWire
                     elif gate.inputs[i] == 1:
-                        print("Using garbler label as input, 1: ",garblerWire.label)
                         gate.inputs[i] = garblerWire
                     else:
                         for output in outputWires:
                             if gate.inputs[i] == output.id:
-                                print("Using previous output as input: ",output.id,output.label)
                                 gate.inputs[i] = output
                 #Evaluate on not Gate
                 if len(gate.inputs) == 1:
                     outputId = gate.output
                     gate.output = Wire(self.evaluateNot(gate.inputs[0].label, gate.garbledTruthTable), outputId)
                     outputWires.append(gate.output)
-                    print("Output: ",gate.output.label)
                 #Evaluate on all other gates w 2 inputs
                 else:
                     outputId = gate.output
                     gate.output = Wire(self.evaluateResult(gate.inputs[0].label, gate.inputs[1].label, gate.garbledTruthTable), outputId)
                     outputWires.append(gate.output)
-                    print("Output: ",gate.output.label)
-            print("Final output: ",outputWires[-1].label)
             return outputWires[-1].label
 
 #Inputs is a list of inputs [i0, i1]

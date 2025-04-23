@@ -43,12 +43,8 @@ def readCircuitData(alice):
 
 def garble(alice, circuitData):
     inputList, outputList = circuitData["Inputs"], circuitData["Outputs"]
-    #for inputLabel in circuitData["Inputs"]:
-    #    print("Input: ",inputLabel.label)
-    #for wire in circuitData["Wires"]:
-    #    print("Wire: ",wire.id, wire.label)
 
-    #Provide a 2 bit input to compare
+    #Provide a 2 bit input
     garblerInputs = input("Enter Input: ")
     garblerInputs = bin(int(garblerInputs))[2:].zfill(2)
     print("Garbler Input in Binary: ",garblerInputs)
@@ -111,10 +107,13 @@ def beginConnection(alice, data, eval_labels):
 
     #Receive result of evaluating the circuit
     receivedOutput = conn.recv(4096)
-    print("Received evaluated output: ", receivedOutput)
     answer = alice.getLabelMapping()[receivedOutput]
     print("Answer: ",answer)
     conn.sendall(answer.to_bytes(answer, byteorder='big'))
+    if answer == 0:
+        print("Bob has a larger input OR inputs are the same")
+    else:
+        print("Alice has a larger input")
 
 def main():
     # Create the Garbler
@@ -124,10 +123,6 @@ def main():
     data = garble(alice, circuitData)
     eval_labels = data["Inputs"]["Evaluator"]
     data["Inputs"]["Evaluator"] = [wire.id for wire in data["Inputs"]["Evaluator"]]
-
-    #print("--------------------------------")
-    #for possibility in data["GarbledTables"]:
-    #    print(possibility,"\n")
 
     beginConnection(alice, data, eval_labels)
 
