@@ -4,19 +4,27 @@ import pickle
 import otc
 from oblivious.ristretto import point  # Needed to correctly serialize public key
 
-
 def evaluate():
-    input = bin(1)[2:].zfill(1)
-    bob = EvaluatorParty(input)
+    while True:
+        evaluatorInput = input("Enter a Number from 0-3: ")
+        if evaluatorInput in ("0", "1", "2", "3"):
+            evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
+            inputList = [evaluatorInput[0], evaluatorInput[1]]
+            print("Evaluator Input in Binary: ", evaluatorInput)
+            break
+        else:
+            print("Incorrect input provided")
+
+    bob = EvaluatorParty(inputList)
 
     HOST = '127.0.0.1'
-    PORT = 50007
+    PORT = 50005
 
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.bind(('127.0.0.1', PORT))
     client.connect((HOST, 50002))
-    print("Connected to Alice")
+    print("Connected to Garbler")
 
     with client as conn:
         # Receiving the garbled data
@@ -32,34 +40,33 @@ def evaluate():
             received_data += chunk
 
         garbledData = pickle.loads(received_data)
-        print("Received Inputs: ", garbledData["Inputs"])
-
-        # Receive public key for Oblivious Transfer
-        receivedData = pickle.loads(client.recv(4096))
-        pk = point.from_base64(receivedData["pk"])
-        ciphertexts = receivedData["ciphertexts"]
 
         # Select which input he wants, label for 0 or label for 1
-        r = otc.receive()
-        query = r.query(pk, int(input))
-        client.sendall(pickle.dumps(query))
+        evaluatorLabels = []
+        for i in range(int(len(garbledData["Inputs"]["Evaluator"]) / 2)):
+            # Receive public key for Oblivious Transfer
+            receivedData = pickle.loads(client.recv(4096))
+            pk = point.from_base64(receivedData["pk"])
 
-        # Receive 2 encrypted choices
-        replies = conn.recv(4096)
-        replies = pickle.loads(replies)
+            r = otc.receive()
+            query = r.query(pk, int(inputList[i]))
+            client.sendall(pickle.dumps(query))
 
-        # Receive the key for encrypted label to decrypt
-        key = r.elect(pk, int(input), *replies)
-        evaluatorLabel = bob.decryptcipher(key, receivedData["ciphertexts"][int(input)])
+            # Receive 2 encrypted choices
+            replies = conn.recv(4096)
+            replies = pickle.loads(replies)
 
-        garblerLabel = garbledData["Inputs"]["Garbler"]
-        print("Evaluator's Label: ", evaluatorLabel)
-        print("Garbler's Label: ", garblerLabel, "\n")
+            # Receive the key for encrypted label to decrypt
+            # Input = 0 or 1
+            key = r.elect(pk, int(inputList[i]), *replies)
+            evaluatorLabel = bob.decryptcipher(key, receivedData["ciphertexts"][int(inputList[i])])
+            evaluatorLabels.append(evaluatorLabel)
+
+        garblerLabels = garbledData["Inputs"]["Garbler"]
 
         # Evaluator now has to evaluate the circuit
-        output = bob.evaluateCircuit(evaluatorLabel, garblerLabel, garbledData)
+        output = bob.evaluateCircuit(evaluatorLabels, garblerLabels, garbledData)
 
-        print("Discovered output label: ", output)
         if output == -1:
             print("Output not found- closing connection")
             conn.close()
@@ -68,6 +75,10 @@ def evaluate():
         outputval = conn.recv(2048)
         outputval = int.from_bytes(outputval, byteorder='big')
         print("Answer:", outputval)
+        if outputval == 0:
+            print("Bob has a larger input OR inputs are the same")
+        else:
+            print("Alice has a larger input")
 
 def main():
     evaluate()

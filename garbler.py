@@ -7,7 +7,7 @@ import pickle
 from Crypto.Random import get_random_bytes
 
 def readCircuitData(alice):
-    with open("Max.json") as fp:
+    with open("Millionaire.json") as fp:
         data = json.load(fp)
 
     #Generate labels for every wire in the Circuit
@@ -43,28 +43,32 @@ def readCircuitData(alice):
 
 def garble(alice, circuitData):
     inputList, outputList = circuitData["Inputs"], circuitData["Outputs"]
-    for input in circuitData["Inputs"]:
-        print("Input: ",input.label)
-    for wire in circuitData["Wires"]:
-        print("Wire: ",wire.id, wire.label)
 
-    # Alice selects wire 1 as her input
-    alice.input = inputList[0]
+    #Provide a 2 bit input
+    while True:
+        garblerInputs = input("Enter a Number from 0-3: ")
+        if garblerInputs in ("0", "1", "2", "3"):
+            garblerInputs = bin(int(garblerInputs))[2:].zfill(2)
+            print("Garbler Input in Binary: ",garblerInputs)
+            alice.input = [inputList[int(garblerInputs[0])], inputList[int(garblerInputs[1])+2]]
+            break
+        else:
+            print("Incorrect input provided")
+
 
     # Create the circuit by garbling each gate's truth table
     garbledTables = alice.createGarbledCircuit(circuitData["Wires"], circuitData["Gates"])
 
     # Generate data to send to Evaluator- Evaluator inputs
     data = {
-            "Inputs": {"Garbler": alice.input,"Evaluator":[inputList[2],inputList[3]]},
+            "Inputs": {"Garbler": alice.input,"Evaluator":[inputList[4],inputList[5],inputList[6],inputList[7]]},
             "Outputs": {outputList[0].label: 0, outputList[1].label: 1},
             "GarbledTables": garbledTables,
             "Gates": circuitData["Gates"]
             }
-    print("Input Data: ",data["Inputs"])
     return data
 
-# ---------------- Connect to listener to connect to Bob -----------------------------------------#
+# ---------------- Connect to Bob -----------------------------------------#
 def beginConnection(alice, data, eval_labels):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('127.0.0.1', 50002))
@@ -78,36 +82,43 @@ def beginConnection(alice, data, eval_labels):
     conn.sendall(dataLength.to_bytes(4, byteorder='big'))
     conn.sendall(pickle.dumps(data))
 
-    # Send otc public key to evaluator
-    s = otc.send()
-    public_key = s.public.to_base64()
 
-    #Generate encrypted labels to send to evaluator
-    #Because OTC library only allows 16 bits to be obliviously transferred, send one of 2 16 bit keys to decrypt the correct label
-    k0, k1 = get_random_bytes(16), get_random_bytes(16)
-    ciphertext_list = alice.encrypt_evaluator_labels(eval_labels, k0, k1)
+    #Generate 2 encrypted labels for the evaluator to choose from
+    for i in range(int(len(eval_labels) / 2)):
+        # Send otc public key to evaluator
+        s = otc.send()
+        public_key = s.public.to_base64()
 
-    data = {
-        "pk":public_key.encode(),
-        "ciphertexts":ciphertext_list,
-    }
-    conn.sendall(pickle.dumps(data))
+        # Because OTC library only allows 16 bits to be obliviously transferred, send one of 2 16 bit keys to decrypt the correct label
+        k0, k1 = get_random_bytes(16), get_random_bytes(16)
+        if len(eval_labels) > 2 and i == 1:
+            ciphertext_list = alice.encrypt_evaluator_labels(eval_labels[2], eval_labels[3], k0, k1)
+        else:
+            ciphertext_list = alice.encrypt_evaluator_labels(eval_labels[0],eval_labels[1], k0, k1)
 
-    # Receive encrypted query selection from evaluator from oblivious transfer
-    selection = conn.recv(4096)
-    selection = pickle.loads(selection)
+        data = {
+            "pk":public_key.encode(),
+            "ciphertexts":ciphertext_list,
+        }
+        conn.sendall(pickle.dumps(data))
 
-    # Reply with 2 possible labels to select
-    replies = s.reply(selection, k0, k1)
-    conn.sendall(pickle.dumps(replies))
-    print("Obliviously Transferred 2 input options to evaluator")
+        # Receive encrypted query selection from evaluator from oblivious transfer
+        selection = conn.recv(4096)
+        selection = pickle.loads(selection)
+
+        # Reply with 2 possible labels to select
+        replies = s.reply(selection, k0, k1)
+        conn.sendall(pickle.dumps(replies))
 
     #Receive result of evaluating the circuit
     receivedOutput = conn.recv(4096)
-    print("Received evaluated output: ", receivedOutput)
     answer = alice.getLabelMapping()[receivedOutput]
     print("Answer: ",answer)
     conn.sendall(answer.to_bytes(answer, byteorder='big'))
+    if answer == 0:
+        print("Bob has a larger input OR inputs are the same")
+    else:
+        print("Alice has a larger input")
 
 def main():
     # Create the Garbler
@@ -116,7 +127,7 @@ def main():
 
     data = garble(alice, circuitData)
     eval_labels = data["Inputs"]["Evaluator"]
-    data["Inputs"].pop("Evaluator")
+    data["Inputs"]["Evaluator"] = [wire.id for wire in data["Inputs"]["Evaluator"]]
 
     beginConnection(alice, data, eval_labels)
 
