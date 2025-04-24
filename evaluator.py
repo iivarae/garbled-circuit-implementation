@@ -18,7 +18,7 @@ def evaluate():
     bob = EvaluatorParty(inputList)
 
     HOST = '127.0.0.1'
-    PORT = 50005
+    PORT = 50009
 
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -66,19 +66,15 @@ def evaluate():
 
         # Evaluator now has to evaluate the circuit
         output = bob.evaluateCircuit(evaluatorLabels, garblerLabels, garbledData)
-
         if output == -1:
             print("Output not found- closing connection")
             conn.close()
+        output = [outputs.label for outputs in output]
 
-        conn.sendall(output)
-        outputval = conn.recv(2048)
-        outputval = int.from_bytes(outputval, byteorder='big')
-        print("Answer:", outputval)
-        if outputval == 0:
-            print("Bob has a larger input OR inputs are the same")
-        else:
-            print("Alice has a larger input")
+        conn.sendall(pickle.dumps(output))
+        outputval = pickle.loads(conn.recv(2048))
+
+        print("Largest Number Entered: ", outputval["answer"])
 
 def main():
     evaluate()

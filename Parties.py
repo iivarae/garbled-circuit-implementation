@@ -141,38 +141,42 @@ class EvaluatorParty:
                 item = f2.decrypt(outputLabel)
                 item = f1.decrypt(item)
                 return item
-        print("Error: No row contains the given labels")
+        #print("Error: No row contains the given labels")
         return -1
 
     #Decrypt and return the correct output label given 1 input
     def evaluateNot(self, input, garbledTable):
+        #print("Evaluating: ",input)
         for possibility in garbledTable:
             if input == possibility[0]:
                 outputLabel = possibility[1]
                 f1 = Fernet(input)
                 item = f1.decrypt(outputLabel)
+                #print("Output found: ", item)
                 return item
-        print("Error- possibility not found in truth Table")
+        #print("Error- possibility not found in truth Table")
         return -1
 
     # Decrypt and return the correct output label with 2+ circuit inputs
     def evaluateResultTwo(self, evaluatorLabel, garblerLabel, garbledTable):
-            for possibility in garbledTable:
-                if evaluatorLabel in possibility and garblerLabel in possibility:
-                    outputLabel = possibility[2]
-                    f1, f2 = Fernet(garblerLabel), Fernet(evaluatorLabel)
-                    item = f1.decrypt(outputLabel)
-                    item = f2.decrypt(item)
-                    return item
-            print("Error: No row contains the given labels")
-            return -1
+        #print("Evaluating ",evaluatorLabel, garblerLabel)
+        for possibility in garbledTable:
+            if evaluatorLabel in possibility and garblerLabel in possibility:
+                outputLabel = possibility[2]
+                f1, f2 = Fernet(garblerLabel), Fernet(evaluatorLabel)
+                item = f1.decrypt(outputLabel)
+                item = f2.decrypt(item)
+                #print("Output found: ", item)
+                return item
+        #print("Error: No row contains the given labels")
+        return -1
 
     def evaluateCircuitTwo(self, evaluatorLabels, garblerLabels, garbledData):
         gates = garbledData["Gates"]
         outputWires = []
         evaluatorWire3 = Wire(evaluatorLabels[0], 3)
         evaluatorWire4 = Wire(evaluatorLabels[1], 4)
-
+        finalOutput = []
         for gate in gates:
             for i in range(len(gate.inputs)):
                 if gate.inputs[i] == 1:
@@ -192,13 +196,20 @@ class EvaluatorParty:
                 outputId = gate.output
                 gate.output = Wire(self.evaluateNot(gate.inputs[0].label, gate.garbledTruthTable), outputId)
                 outputWires.append(gate.output)
+                if gate.output.id in garbledData["Outputs"]:
+                    #print("--- One of final output wires found --")
+                    finalOutput.append(gate.output)
             # Evaluate on all other gates w 2 inputs
             else:
                 outputId = gate.output
                 gate.output = Wire(
                     self.evaluateResultTwo(gate.inputs[0].label, gate.inputs[1].label, gate.garbledTruthTable), outputId)
                 outputWires.append(gate.output)
-        return outputWires[-1].label
+                #print("Output id: ",gate.output.id)
+                if gate.output.id in garbledData["Outputs"]:
+                    #print("--- One of final output wires found --")
+                    finalOutput.append(gate.output)
+        return finalOutput
 
     #Evaluate an Entire circuit. Feed multiple gates into evaluateResult/evaluateNot
     def evaluateCircuit(self, evaluatorLabel, garblerWire, garbledData):

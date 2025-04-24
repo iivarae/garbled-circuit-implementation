@@ -7,7 +7,7 @@ import pickle
 from Crypto.Random import get_random_bytes
 
 def readCircuitData(alice):
-    with open("Millionaire.json") as fp:
+    with open("Max.json") as fp:
         data = json.load(fp)
 
     #Generate labels for every wire in the Circuit
@@ -25,7 +25,7 @@ def readCircuitData(alice):
             inputList.append(wire)
             inputList.append(wire2)
         #Generate 2 possible output values
-        elif data["Wires"][i] == data["Output"]:
+        elif data["Wires"][i] in data["Output"]:
             outputList.append(wire)
             outputList.append(wire2)
 
@@ -38,7 +38,6 @@ def readCircuitData(alice):
         cls = getattr(sys.modules[__name__], gateType)
         instance = cls(data["Gates"][gate]["id"], data["Gates"][gate]["type"][:-4], gateInputs, gateOutput)
         gateList.append(instance)
-
     return {"Wires":wireList, "Gates":gateList, "Inputs":inputList, "Outputs":outputList}
 
 def garble(alice, circuitData):
@@ -62,7 +61,7 @@ def garble(alice, circuitData):
     # Generate data to send to Evaluator- Evaluator inputs
     data = {
             "Inputs": {"Garbler": alice.input,"Evaluator":[inputList[4],inputList[5],inputList[6],inputList[7]]},
-            "Outputs": {outputList[0].label: 0, outputList[1].label: 1},
+            "Outputs": [outputList[0].id, outputList[1].id,outputList[2].id,outputList[3].id],
             "GarbledTables": garbledTables,
             "Gates": circuitData["Gates"]
             }
@@ -111,14 +110,15 @@ def beginConnection(alice, data, eval_labels):
         conn.sendall(pickle.dumps(replies))
 
     #Receive result of evaluating the circuit
-    receivedOutput = conn.recv(4096)
-    answer = alice.getLabelMapping()[receivedOutput]
-    print("Answer: ",answer)
-    conn.sendall(answer.to_bytes(answer, byteorder='big'))
-    if answer == 0:
-        print("Bob has a larger input OR inputs are the same")
-    else:
-        print("Alice has a larger input")
+    receivedOutput = pickle.loads(conn.recv(4096))
+
+    answer = ""
+    for output in receivedOutput:
+        answer += str(alice.getLabelMapping()[output])
+    answer = int(answer, 2)
+
+    conn.sendall(pickle.dumps({"answer":answer}))
+    print("Largest Number Entered: ",answer)
 
 def main():
     # Create the Garbler
