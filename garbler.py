@@ -115,6 +115,7 @@ def beginConnection(alice, data, eval_labels, filename):
     receivedOutput = pickle.loads(conn.recv(4096))
     print("Received output: ",receivedOutput)
     answer = ""
+    print(alice.getLabelMapping()[receivedOutput])
 
     if len(data["Outputs"]) >= 2:
         for output in receivedOutput:
@@ -128,10 +129,9 @@ def beginConnection(alice, data, eval_labels, filename):
     conn.sendall(pickle.dumps({"answer":message}))
     print("Message: ",message)
 
-def main():
+def main(filename):
     # Create the Garbler
     alice = GarblerParty()
-    filename = "and.json"
     circuitData = readCircuitData(alice,filename)
 
     data = garble(alice, circuitData)
@@ -141,4 +141,4 @@ def main():
     beginConnection(alice, data, eval_labels, filename)
 
 if __name__ == "__main__":
-    main()
+    main("Millionaire.json")

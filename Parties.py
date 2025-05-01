@@ -38,6 +38,8 @@ class GarblerParty:
             message = "Answer is "+str(answer)
         elif filename == "Max.json":
             message = "Largest input is "+str(answer)
+        elif  filename == "Max1.json":
+            message = "Largest input is "+str(answer) if answer == "1" else "Inputs are the same"
         return message
 
     #Generate labels for each wire
