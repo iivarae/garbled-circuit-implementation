@@ -3,19 +3,36 @@ import socket
 import pickle
 import otc
 from oblivious.ristretto import point  # Needed to correctly serialize public key
+import json
 
 def evaluate():
-    while True:
-        evaluatorInput = input("Enter a Number from 0-3: ")
-        if evaluatorInput in ("0", "1", "2", "3"):
-            evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
-            inputList = [evaluatorInput[0], evaluatorInput[1]]
-            print("Evaluator Input in Binary: ", evaluatorInput)
-            break
-        else:
-            print("Incorrect input provided")
+    with open("and.json") as fp:
+        circuitData = json.load(fp)
 
-    bob = EvaluatorParty(inputList)
+    while True:
+        #for 2 bit inputs
+        if len(circuitData["Inputs"]) >= 4:
+            evaluatorInput = input("Enter a Number from 0-3: ")
+            if evaluatorInput in ("0", "1", "2", "3"):
+                evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
+                inputList = [evaluatorInput[0], evaluatorInput[1]]
+                print("Evaluator Input in Binary: ", evaluatorInput)
+                break
+            else:
+                print("Incorrect input provided")
+        #for 1 bit inputs
+        elif len(circuitData["Inputs"]) < 4:
+            evaluatorInput = input("Enter a Number from 0-1: ")
+            if evaluatorInput in ("0", "1"):
+                evaluatorInput = bin(int(evaluatorInput))[2:]
+                print("Evaluator Input in Binary: ", evaluatorInput)
+                inputList = [evaluatorInput[0]]
+                break
+            else:
+                print("Incorrect input provided")
+
+    bob = EvaluatorParty()
+    bob.input = inputList
 
     HOST = '127.0.0.1'
     PORT = 50005
@@ -23,7 +40,7 @@ def evaluate():
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.bind(('127.0.0.1', PORT))
-    client.connect((HOST, 50002))
+    client.connect((HOST, 50003))
     print("Connected to Garbler")
 
     with client as conn:
@@ -63,22 +80,23 @@ def evaluate():
             evaluatorLabels.append(evaluatorLabel)
 
         garblerLabels = garbledData["Inputs"]["Garbler"]
-
         # Evaluator now has to evaluate the circuit
         output = bob.evaluateCircuit(evaluatorLabels, garblerLabels, garbledData)
-
+        print("Output: ",output)
         if output == -1:
             print("Output not found- closing connection")
             conn.close()
+        #For handling an output of 2 bits
+        if len(garbledData["Outputs"]) >= 2:
+            output = [outputs.label for outputs in output]
+        #For handling an output of 1 bit that is in a list
+        if len(output) == 1:
+            output = output[0].label
 
-        conn.sendall(output)
-        outputval = conn.recv(2048)
-        outputval = int.from_bytes(outputval, byteorder='big')
-        print("Answer:", outputval)
-        if outputval == 0:
-            print("Bob has a larger input OR inputs are the same")
-        else:
-            print("Alice has a larger input")
+        conn.sendall(pickle.dumps(output))
+        outputval = pickle.loads(conn.recv(2048))
+
+        print(outputval["answer"])
 
 def main():
     evaluate()
