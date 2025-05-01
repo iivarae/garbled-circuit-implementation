@@ -6,26 +6,26 @@ import socket
 import pickle
 from Crypto.Random import get_random_bytes
 
-def readCircuitData(alice):
-    with open("Millionaire.json") as fp:
+#Read circuit data and generate labels for wires
+def readCircuitData(alice, filename):
+    with open(filename) as fp:
         data = json.load(fp)
 
     #Generate labels for every wire in the Circuit
-    wireList = []
-    inputList = []
-    outputList = []
+    wireList, inputList, outputList = [], [], []
     for i in range(len(data["Wires"])):
-        wire = Wire(alice.generateLabel(), i+1)
-        wire2 = Wire(alice.generateLabel(), i+1)
         #Generate 2 possible labels for all wires
+        wire, wire2 = Wire(alice.generateLabel(), i+1), Wire(alice.generateLabel(), i+1)
         wireList.append(wire)
         wireList.append(wire2)
-        #Generate 2 possible labels for input wires
+
+        #Add generated labels to inputList
         if data["Wires"][i] in data["Inputs"]:
             inputList.append(wire)
             inputList.append(wire2)
-        #Generate 2 possible output values
-        elif data["Wires"][i] == data["Output"]:
+
+        #Add generated labels to outputList
+        elif data["Wires"][i] in data["Output"]:
             outputList.append(wire)
             outputList.append(wire2)
 
@@ -44,34 +44,36 @@ def readCircuitData(alice):
 def garble(alice, circuitData):
     inputList, outputList = circuitData["Inputs"], circuitData["Outputs"]
 
-    #Provide a 2 bit input
-    while True:
-        garblerInputs = input("Enter a Number from 0-3: ")
-        if garblerInputs in ("0", "1", "2", "3"):
-            garblerInputs = bin(int(garblerInputs))[2:].zfill(2)
-            print("Garbler Input in Binary: ",garblerInputs)
-            alice.input = [inputList[int(garblerInputs[0])], inputList[int(garblerInputs[1])+2]]
-            break
-        else:
-            print("Incorrect input provided")
+    #Provide an input
+    alice.input = alice.setInput(inputList)
 
-
-    # Create the circuit by garbling each gate's truth table
+    # Create the garbledCircuit
     garbledTables = alice.createGarbledCircuit(circuitData["Wires"], circuitData["Gates"])
 
+    #print("Garbled Tables:")
+    #for table in garbledTables:
+    #    print("Table: ",table)
+
     # Generate data to send to Evaluator- Evaluator inputs
+    # Evaluator can have the Output IDs and garbler's input label. Evaluator input labels are removed in main function before sending
+    # Providing input/output wire id's to evaluator is just a more organized way to send circuit data to the evaluator
+
+    #Output/input list of labels changes depending on if inputs/outputs are 1 or 2 bits long
+    evalInputs = [inputList[4],inputList[5],inputList[6],inputList[7]] if len(inputList) > 4 else [inputList[2],inputList[3]]
+    outList = [outputList[0].id, outputList[1].id,outputList[2].id,outputList[3].id] if len(outputList) > 2 else [outputList[0].id]
+
     data = {
-            "Inputs": {"Garbler": alice.input,"Evaluator":[inputList[4],inputList[5],inputList[6],inputList[7]]},
-            "Outputs": {outputList[0].label: 0, outputList[1].label: 1},
+            "Inputs": {"Garbler": alice.input,"Evaluator": evalInputs},
+            "Outputs": outList,
             "GarbledTables": garbledTables,
             "Gates": circuitData["Gates"]
             }
     return data
 
 # ---------------- Connect to Bob -----------------------------------------#
-def beginConnection(alice, data, eval_labels):
+def beginConnection(alice, data, eval_labels, filename):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('127.0.0.1', 50002))
+    server.bind(('127.0.0.1', 50003))
     server.listen(1)
 
     print("Garbler Waiting for connection...")
@@ -82,8 +84,7 @@ def beginConnection(alice, data, eval_labels):
     conn.sendall(dataLength.to_bytes(4, byteorder='big'))
     conn.sendall(pickle.dumps(data))
 
-
-    #Generate 2 encrypted labels for the evaluator to choose from
+    #Send 2 encrypted labels to the evaluator
     for i in range(int(len(eval_labels) / 2)):
         # Send otc public key to evaluator
         s = otc.send()
@@ -96,40 +97,48 @@ def beginConnection(alice, data, eval_labels):
         else:
             ciphertext_list = alice.encrypt_evaluator_labels(eval_labels[0],eval_labels[1], k0, k1)
 
-        data = {
+        keyData = {
             "pk":public_key.encode(),
             "ciphertexts":ciphertext_list,
         }
-        conn.sendall(pickle.dumps(data))
+        conn.sendall(pickle.dumps(keyData))
 
-        # Receive encrypted query selection from evaluator from oblivious transfer
+        # Receive encrypted query selection from evaluator via oblivious transfer
         selection = conn.recv(4096)
         selection = pickle.loads(selection)
 
-        # Reply with 2 possible labels to select
+        # Reply with 2 possible keys to select- evaluator will choose the appropriate key to decrypt his label
         replies = s.reply(selection, k0, k1)
         conn.sendall(pickle.dumps(replies))
 
     #Receive result of evaluating the circuit
-    receivedOutput = conn.recv(4096)
-    answer = alice.getLabelMapping()[receivedOutput]
-    print("Answer: ",answer)
-    conn.sendall(answer.to_bytes(answer, byteorder='big'))
-    if answer == 0:
-        print("Bob has a larger input OR inputs are the same")
+    receivedOutput = pickle.loads(conn.recv(4096))
+    print("Received output: ",receivedOutput)
+    answer = ""
+
+    if len(data["Outputs"]) >= 2:
+        for output in receivedOutput:
+            answer += str(alice.getLabelMapping()[output])
+        answer = int(answer, 2)
     else:
-        print("Alice has a larger input")
+        answer = str(alice.getLabelMapping()[receivedOutput])
+
+    message = alice.outputMessage(answer, filename)
+
+    conn.sendall(pickle.dumps({"answer":message}))
+    print("Message: ",message)
 
 def main():
     # Create the Garbler
     alice = GarblerParty()
-    circuitData = readCircuitData(alice)
+    filename = "and.json"
+    circuitData = readCircuitData(alice,filename)
 
     data = garble(alice, circuitData)
     eval_labels = data["Inputs"]["Evaluator"]
     data["Inputs"]["Evaluator"] = [wire.id for wire in data["Inputs"]["Evaluator"]]
 
-    beginConnection(alice, data, eval_labels)
+    beginConnection(alice, data, eval_labels, filename)
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 {
   "Wires": [1,2,3,4,5,6,7,8,9,10],
   "Inputs": [1,2,3,4],
-  "Output": 10,
+  "Output": [10],
   "Gates": {
     "g1": {
       "type": "notGate",
