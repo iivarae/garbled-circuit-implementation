@@ -137,4 +137,4 @@ def main(filename):
     beginConnection(alice, data, eval_labels, filename)
 
 if __name__ == "__main__":
-    main("Max.json")
+    main("Millionaire.json")
