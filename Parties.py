@@ -155,6 +155,7 @@ class GarblerParty:
                 garbledTables.append(garbledTable)
         return garbledTables
 
+
 class EvaluatorParty:
     def __init__(self):
         self.input = input
