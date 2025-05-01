@@ -3,13 +3,11 @@ import socket
 import pickle
 import otc
 from oblivious.ristretto import point  # Needed to correctly serialize public key
-import os
 
-def evaluate(port):
+def evaluate():
     bob = EvaluatorParty()
 
     HOST = '127.0.0.1'
-    PORT = port
 
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -100,7 +98,7 @@ def evaluate(port):
         client.close()
 
 def main():
-    evaluate(50004)
+    evaluate()
 
 if __name__ == "__main__":
     main()

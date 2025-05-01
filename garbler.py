@@ -115,7 +115,6 @@ def beginConnection(alice, data, eval_labels, filename):
     receivedOutput = pickle.loads(conn.recv(4096))
     print("Received output: ",receivedOutput)
     answer = ""
-    print(alice.getLabelMapping()[receivedOutput])
 
     if len(data["Outputs"]) >= 2:
         for output in receivedOutput:
@@ -141,4 +140,4 @@ def main(filename):
     beginConnection(alice, data, eval_labels, filename)
 
 if __name__ == "__main__":
-    main("Millionaire.json")
+    main("Max.json")
