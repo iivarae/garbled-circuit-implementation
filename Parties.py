@@ -189,7 +189,6 @@ class EvaluatorParty:
         return -1
 
     #Evaluate an Entire circuit. Feed multiple gates into evaluateResult/evaluateNot
-
     def evaluateCircuit(self, evalutorWires, garblerWires, garbledData):
         gates = garbledData["Gates"]
         outputWires, finalOutput = [], []
@@ -224,7 +223,6 @@ class EvaluatorParty:
                 # Set gate outputs to appropriate wires
                 else:
                     for output in outputWires:
-                        print("Output to input: ", gate.inputs[i])
                         if gate.inputs[i] == output.id:
                             gate.inputs[i] = output
 

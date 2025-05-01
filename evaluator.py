@@ -5,8 +5,8 @@ import otc
 from oblivious.ristretto import point  # Needed to correctly serialize public key
 import json
 
-def evaluate():
-    with open("and.json") as fp:
+def evaluate(filename, port):
+    with open(filename) as fp:
         circuitData = json.load(fp)
 
     while True:
@@ -35,7 +35,7 @@ def evaluate():
     bob.input = inputList
 
     HOST = '127.0.0.1'
-    PORT = 50005
+    PORT = port
 
     # Listen for Alice's Data- get the Circuit from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -99,7 +99,7 @@ def evaluate():
         print(outputval["answer"])
 
 def main():
-    evaluate()
+    evaluate("and.json", 50007)
 
 if __name__ == "__main__":
     main()

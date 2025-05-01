@@ -1,0 +1,13 @@
+{
+  "Wires": [1,2,3],
+  "Inputs": [1,2],
+  "Output": [3],
+  "Gates": {
+    "g1": {
+      "type": "andGate",
+      "id": 1,
+      "inputs": [1,2],
+      "output": 3
+    }
+  }
+}
