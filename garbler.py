@@ -76,7 +76,7 @@ def beginConnection(alice, data, eval_labels, filename):
     server.bind(('127.0.0.1', 50003))
     server.listen(1)
 
-    print("Garbler Waiting for connection...")
+    print("Garbler Waiting for Evaluator's connection...")
     conn, addr = server.accept()
 
     # Sending the circuit data to the evaluator
@@ -97,10 +97,7 @@ def beginConnection(alice, data, eval_labels, filename):
         else:
             ciphertext_list = alice.encrypt_evaluator_labels(eval_labels[0],eval_labels[1], k0, k1)
 
-        keyData = {
-            "pk":public_key.encode(),
-            "ciphertexts":ciphertext_list,
-        }
+        keyData = {"pk":public_key.encode(),"ciphertexts":ciphertext_list}
         conn.sendall(pickle.dumps(keyData))
 
         # Receive encrypted query selection from evaluator via oblivious transfer
@@ -128,10 +125,9 @@ def beginConnection(alice, data, eval_labels, filename):
     conn.sendall(pickle.dumps({"answer":message}))
     print("Message: ",message)
 
-def main():
+def main(filename):
     # Create the Garbler
     alice = GarblerParty()
-    filename = "and.json"
     circuitData = readCircuitData(alice,filename)
 
     data = garble(alice, circuitData)
@@ -141,4 +137,4 @@ def main():
     beginConnection(alice, data, eval_labels, filename)
 
 if __name__ == "__main__":
-    main()
+    main("Max.json")

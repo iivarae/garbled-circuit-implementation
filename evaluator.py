@@ -2,51 +2,19 @@ from Parties import EvaluatorParty
 import socket
 import pickle
 import otc
-from oblivious.ristretto import point  # Needed to correctly serialize public key
-import json
+from oblivious.ristretto import point  # Needed to correctly serialize public key for otc
 
-def evaluate(filename, port):
-    with open(filename) as fp:
-        circuitData = json.load(fp)
-
-    while True:
-        #for 2 bit inputs
-        if len(circuitData["Inputs"]) >= 4:
-            evaluatorInput = input("Enter a Number from 0-3: ")
-            if evaluatorInput in ("0", "1", "2", "3"):
-                evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
-                inputList = [evaluatorInput[0], evaluatorInput[1]]
-                print("Evaluator Input in Binary: ", evaluatorInput)
-                break
-            else:
-                print("Incorrect input provided")
-        #for 1 bit inputs
-        elif len(circuitData["Inputs"]) < 4:
-            evaluatorInput = input("Enter a Number from 0-1: ")
-            if evaluatorInput in ("0", "1"):
-                evaluatorInput = bin(int(evaluatorInput))[2:]
-                print("Evaluator Input in Binary: ", evaluatorInput)
-                inputList = [evaluatorInput[0]]
-                break
-            else:
-                print("Incorrect input provided")
-
+def evaluate():
     bob = EvaluatorParty()
-    bob.input = inputList
 
-    HOST = '127.0.0.1'
-    PORT = port
-
-    # Listen for Alice's Data- get the Circuit from her
+    # Connect to Alice and get the circuit data from her
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.bind(('127.0.0.1', PORT))
-    client.connect((HOST, 50003))
+    client.connect(('127.0.0.1', 50003))
     print("Connected to Garbler")
 
     with client as conn:
-        # Receiving the garbled data
-        expectedLength = conn.recv(4)
-        expectedLength = int.from_bytes(expectedLength, byteorder='big')
+        # Receiving the length of the garbled data
+        expectedLength = int.from_bytes(conn.recv(4), byteorder='big')
 
         # Receive entire pickled data based on the received length
         received_data = b""
@@ -58,6 +26,9 @@ def evaluate(filename, port):
 
         garbledData = pickle.loads(received_data)
 
+        #Choose input
+        bob.setInput(len(garbledData["Inputs"]["Evaluator"]) + len(garbledData["Inputs"]["Garbler"]))
+
         # Select which input he wants, label for 0 or label for 1
         evaluatorLabels = []
         for i in range(int(len(garbledData["Inputs"]["Evaluator"]) / 2)):
@@ -66,23 +37,23 @@ def evaluate(filename, port):
             pk = point.from_base64(receivedData["pk"])
 
             r = otc.receive()
-            query = r.query(pk, int(inputList[i]))
+            query = r.query(pk, int(bob.input[i]))
             client.sendall(pickle.dumps(query))
 
-            # Receive 2 encrypted choices
+            # Receive 2 ENCRYPTED choices
             replies = conn.recv(4096)
             replies = pickle.loads(replies)
 
-            # Receive the key for encrypted label to decrypt
-            # Input = 0 or 1
-            key = r.elect(pk, int(inputList[i]), *replies)
-            evaluatorLabel = bob.decryptcipher(key, receivedData["ciphertexts"][int(inputList[i])])
+            # Receive the key to decrypt the correct encrypted label. Send 0 or 1 as input
+            key = r.elect(pk, int(bob.input[i]), *replies)
+            evaluatorLabel = bob.decryptcipher(key, receivedData["ciphertexts"][int(bob.input[i])])
             evaluatorLabels.append(evaluatorLabel)
 
         garblerLabels = garbledData["Inputs"]["Garbler"]
+
         # Evaluator now has to evaluate the circuit
         output = bob.evaluateCircuit(evaluatorLabels, garblerLabels, garbledData)
-        print("Output: ",output)
+
         if output == -1:
             print("Output not found- closing connection")
             conn.close()
@@ -97,9 +68,10 @@ def evaluate(filename, port):
         outputval = pickle.loads(conn.recv(2048))
 
         print(outputval["answer"])
+        client.close()
 
 def main():
-    evaluate("and.json", 50007)
+    evaluate()
 
 if __name__ == "__main__":
     main()

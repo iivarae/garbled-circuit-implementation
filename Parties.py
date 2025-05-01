@@ -38,6 +38,8 @@ class GarblerParty:
             message = "Answer is "+str(answer)
         elif filename == "Max.json":
             message = "Largest input is "+str(answer)
+        elif  filename == "Max1.json":
+            message = "Largest input is "+str(answer) if answer == "1" else "Inputs are the same"
         return message
 
     #Generate labels for each wire
@@ -155,9 +157,33 @@ class GarblerParty:
                 garbledTables.append(garbledTable)
         return garbledTables
 
+
 class EvaluatorParty:
     def __init__(self):
         self.input = input
+
+    def setInput(self, length):
+        while True:
+            # for 2 bit inputs
+            if length >= 4:
+                evaluatorInput = input("Enter a Number from 0-3: ")
+                if evaluatorInput in ("0", "1", "2", "3"):
+                    evaluatorInput = bin(int(evaluatorInput))[2:].zfill(2)
+                    self.input = [evaluatorInput[0], evaluatorInput[1]]
+                    print("Evaluator Input in Binary: ", evaluatorInput)
+                    break
+                else:
+                    print("Incorrect input provided")
+            # for 1 bit inputs
+            elif length < 4:
+                evaluatorInput = input("Enter a Number from 0-1: ")
+                if evaluatorInput in ("0", "1"):
+                    evaluatorInput = bin(int(evaluatorInput))[2:]
+                    print("Evaluator Input in Binary: ", evaluatorInput)
+                    self.input = [evaluatorInput[0]]
+                    break
+                else:
+                    print("Incorrect input provided")
 
     #Decrypt evaluator's label using the correct key delivered over OT
     def decryptcipher(self, key, ciphertext):
