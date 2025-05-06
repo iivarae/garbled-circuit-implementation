@@ -36,7 +36,7 @@ class GarblerParty:
             message = "Evaluator has a larger input OR inputs are the same" if answer == "0" else "Garbler has a larger input"
         elif filename == "and.json":
             message = "Answer is "+str(answer)
-        elif filename == "Max.json":
+        elif filename == "Max2.json":
             message = "Largest input is "+str(answer)
         elif  filename == "Max1.json":
             message = "Largest input is "+str(answer) if answer == "1" else "Inputs are the same"

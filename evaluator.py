@@ -3,6 +3,7 @@ import socket
 import pickle
 import otc
 from oblivious.ristretto import point  # Needed to correctly serialize public key for otc
+import time
 
 def evaluate():
     bob = EvaluatorParty()
@@ -28,6 +29,8 @@ def evaluate():
 
         #Choose input
         bob.setInput(len(garbledData["Inputs"]["Evaluator"]) + len(garbledData["Inputs"]["Garbler"]))
+
+        start_time = time.perf_counter()
 
         # Select which input he wants, label for 0 or label for 1
         evaluatorLabels = []
@@ -69,6 +72,9 @@ def evaluate():
 
         print(outputval["answer"])
         client.close()
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        print("Time: ",execution_time)
 
 def main():
     evaluate()
