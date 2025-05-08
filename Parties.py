@@ -71,6 +71,7 @@ class GarblerParty:
 
     #garble a Not Gate's truth table
     def garbleNot(self, truthTable, inputs, outputs):
+        garbledTable = []
         for possibility in truthTable:
             if possibility[0] == 0:
                 possibility[0] = inputs[0]
@@ -86,19 +87,22 @@ class GarblerParty:
                 self.labelMapping[outputs[0]] = 0
                 encryptedOutputWire = self.encryptOutput(inputs[1],outputs[0])
                 possibility[1] = encryptedOutputWire
+                garbledTable.append(encryptedOutputWire)
             #If output is 1, encrypt with input of 0
             elif possibility[1] == 1:
                 self.labelMapping[outputs[1]] = 1
                 encryptedOutputWire = self.encryptOutput(inputs[0],outputs[1])
                 possibility[1] = encryptedOutputWire
+                garbledTable.append(encryptedOutputWire)
 
         #Permuting the truth table
         random.shuffle(truthTable)
-        return truthTable
+        return garbledTable
 
     #Garble the given truthTable
     def garbleTruthTable(self, truthTable, inputs, outputs):
         #Loop through each key
+        garbledTable = []
         for possibility in truthTable:
             #Map each label to a value so that the final output can be relayed
             #Garbler should know the values of labels anyhow
@@ -125,14 +129,16 @@ class GarblerParty:
                 self.labelMapping[outputs[0]] = 0
                 encryptedOutputWire = self.encryptOutput(inputs,outputs[0])
                 possibility[2] = encryptedOutputWire
+                garbledTable.append(encryptedOutputWire)
             elif possibility[2] == 1:
                 self.labelMapping[outputs[1]] = 1
                 encryptedOutputWire = self.encryptOutput(inputs,outputs[1])
                 possibility[2] = encryptedOutputWire
+                garbledTable.append(encryptedOutputWire)
 
         #Permute the truth table
-        random.shuffle(truthTable)
-        return truthTable
+        random.shuffle(garbledTable)
+        return garbledTable
 
     def createGarbledCircuit(self, wires, gates):
         garbledTables = []
@@ -192,26 +198,25 @@ class EvaluatorParty:
 
     #Decrypt and return the correct output label given 1 input
     def evaluateNot(self, input, garbledTable):
-        #print("Evaluating: ",input)
+        f1 = Fernet(input)
         for possibility in garbledTable:
-            if input == possibility[0]:
-                outputLabel = possibility[1]
-                f1 = Fernet(input)
-                item = f1.decrypt(outputLabel)
-                #print("Output found: ", item)
+            try:
+                item = f1.decrypt(possibility)
                 return item
-        #print("Error- possibility not found in truth Table")
+            except:
+                continue
         return -1
 
     def evaluateResult(self, evaluatorLabel, garblerLabel, garbledTable):
         for possibility in garbledTable:
-            if evaluatorLabel in possibility and garblerLabel in possibility:
-                outputLabel = possibility[2]
-                f1 = Fernet(garblerLabel)
-                f2 = Fernet(evaluatorLabel)
-                item = f1.decrypt(outputLabel)
+            f1 = Fernet(garblerLabel)
+            f2 = Fernet(evaluatorLabel)
+            try:
+                item = f1.decrypt(possibility)
                 item = f2.decrypt(item)
                 return item
+            except:
+                continue
         return -1
 
     #Evaluate an Entire circuit. Feed multiple gates into evaluateResult/evaluateNot
@@ -228,7 +233,6 @@ class EvaluatorParty:
             evalutorWires = [evalutorWires]
         if not isinstance(garblerWires, list):
             garblerWires = [garblerWires]
-
 
         # Add garbler wires to input mapping
         for wire in garblerWires:
@@ -255,9 +259,14 @@ class EvaluatorParty:
             # Evaluate gate
             outputId = gate.output
             if len(gate.inputs) == 1:
-                gate.output = Wire(self.evaluateNot(gate.inputs[0].label, gate.garbledTruthTable), outputId)
+                result = self.evaluateNot(gate.inputs[0].label, gate.garbledTruthTable)
+                if result == -1:
+                    return -1
+                gate.output = Wire(result, outputId)
             else:
                 result = self.evaluateResult(gate.inputs[0].label, gate.inputs[1].label, gate.garbledTruthTable)
+                if result == -1:
+                    return -1
                 gate.output = Wire(result, outputId)
 
             outputWires.append(gate.output)
@@ -270,7 +279,6 @@ class EvaluatorParty:
             return finalOutput
         else:
             return finalOutput[0].label
-
 
 #Inputs is a list of inputs [i0, i1]
 #Output is the gate result o0
@@ -356,7 +364,3 @@ class Wire:
     def __init__(self,label, id):
         self.label = label
         self.id = id
-
-
-
-
